@@ -1,5 +1,4 @@
 module Json2
-#	export parse, build, free
 
 	# Depends on https://github.com/udp/json-builder
 	const libjson2 = find_library(["libjson2"],[Pkg.dir("Json2", "deps")])
@@ -13,6 +12,9 @@ module Json2
 	const JSON_BOOL = 6
 	const JSON_NULL = 7
 	const JSON_BUILDER_EXTRA = unsafe_load(cglobal((:json_builder_extra, libjson2), Uint))
+	const JSON_SERIALIZE_MODE_MULTILINE = 0::Int
+	const JSON_SERIALIZE_MODE_SINGLE_LINE= 1::Int
+	const JSON_SERIALIZE_MODE_PACKED = 2::Int
 
 	type Json_settings
 		max_memory::Culong
@@ -78,28 +80,48 @@ module Json2
 		return None
 	end	
 
+	type Json_document # for Auto-Free
+		root::Ptr{Json_value}
+		function Json_document(ptr::Ptr{Json_value})
+			newItem = new(ptr)
+			finalizer( newItem, free)
+			return newItem
+		end
+	end
+	getindex(doc::Json_document, idx::Int) = getindex(unsafe_load(doc.root),idx)
+	getindex(doc::Json_document, key::String) = getindex(unsafe_load(doc.root), key)
+
 	function parse(json::String)
 		settings = Json_settings()
 		settings.value_extra = JSON_BUILDER_EXTRA;
 		error = Array(Cchar, 128)
 
-		return ccall((:json_parse_ex, libjson2) , Ptr{Json_value}
+		return Json_document(ccall((:json_parse_ex, libjson2) , Ptr{Json_value}
 			, (Ptr{Json_settings}, Ptr{Int8}, Uint, Ptr{Cchar})
-			, &settings, json, sizeof(json), pointer(error))
+			, &settings, json, sizeof(json), pointer(error)))
 	end
 
-	function build(pDoc::Ptr{Json_value})
-		size = ccall((:json_measure, libjson2), Uint64, (Ptr{Json_value},), pDoc)
+
+	type Json_serialize_opts
+		mode::Int
+		opts::Int
+		indent_size::Int
+	end
+
+	function build(doc::Json_document)
+		size = ccall((:json_measure, libjson2), Uint64, (Ptr{Json_value},), doc.root)
 		buf = Array(Cchar, size)
-		ccall((:json_serialize, libjson2), Void
-			, (Ptr{Cchar}, Ptr{Json_value})
-			, pointer(buf), pDoc)
+
+		opts = Json_serialize_opts(JSON_SERIALIZE_MODE_PACKED, 0, 4)
+		ccall((:json_serialize_ex, libjson2), Void
+			, (Ptr{Cchar}, Ptr{Json_value}, Json_serialize_opts)
+			, pointer(buf), doc.root, opts)
 		return bytestring(convert(Ptr{Cchar}, buf))
 	end
 
-	function free(pDoc::Ptr{Json_value})
+	function free(doc::Json_document)
 		ccall((:json_builder_free, libjson2), Void
-			, (Ptr{Json_value},), pDoc)
+			, (Ptr{Json_value},), doc.root)
 	end
 end
 

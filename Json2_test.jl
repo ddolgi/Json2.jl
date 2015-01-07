@@ -5,12 +5,13 @@ using Json2
 SAMPLE_FILE = "sample.json"
 function parse_test()
 	sampleJson = readall(open(SAMPLE_FILE, "r"))
-	pDoc = Json2.parse(sampleJson)
-	doc = unsafe_load(pDoc)
+	doc = Json2.parse(sampleJson)
 	@test doc["int5"] == 5
 	@test doc["string thing"] == "example"
 	@test doc["bool"] == None
 	@test doc["int array"][2] == 2
+
+	Json2.build(doc)
 end
 
 function stream()
@@ -21,7 +22,6 @@ function stream()
 		doc = Json2.parse(line)
 		write(f, Json2.build(doc))
 		write(f, '\n')
-		Json2.free(doc)
 	end
 end
 
