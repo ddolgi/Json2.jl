@@ -9,7 +9,10 @@ function parse_validate()
 	@test doc["int5"] == 5
 	@test doc["string thing"] == "example"
 	@test doc["bool"] == None
-	@test doc["int array"][2] == 2
+	@test doc["int array"][0] == None 
+	@test doc["int array"][1] == 1
+	@test doc["int array"][5] == 5
+	@test doc["int array"][6] == None 
 
 	Json2.build(doc)
 end

@@ -59,20 +59,19 @@ module Json2
 	end
 
 	function getindex(obj::Json_value, idx::Int)
-		if obj.vtype == JSON_ARR
-			arr = unsafe_load(convert(Ptr{Ptr{Json_value}}, obj.ptr), idx)
-			return getValue(arr)
+		if obj.vtype != JSON_ARR || idx < 1 || obj.num < idx
+			return None
 		end
-		return None
+		arr = unsafe_load(convert(Ptr{Ptr{Json_value}}, obj.ptr), idx)
+		return getValue(arr)
 	end	
 
 	function getindex(obj::Json_value, key::String)
 		if obj.vtype == JSON_OBJ
 			pEntry = convert(Ptr{Json_object_entry}, obj.ptr)
-			for i in 1:obj.num
+			for i in 1:obj.num	# Linear Search
 				entry = unsafe_load(pEntry, i)
-				name = bytestring(entry.name)
-				if name == key
+				if bytestring(entry.name) == key
 					return getValue(convert(Ptr{Json_value}, entry.value))
 				end
 			end
