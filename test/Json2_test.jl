@@ -3,7 +3,7 @@ using Base.Test
 using Json2
 
 SAMPLE_FILE = "sample.json"
-function parse_test()
+function parse_validate()
 	sampleJson = readall(open(SAMPLE_FILE, "r"))
 	doc = Json2.parse(sampleJson)
 	@test doc["int5"] == 5
@@ -14,8 +14,8 @@ function parse_test()
 	Json2.build(doc)
 end
 
-function stream()
-	fn = "testing.json"
+function stream(fn::String)
+	println(STDERR, "# Parse JSONs from STDIN, build JSONs to '$fn'")
 	f = open(fn, "w")
 
 	for (i, line) in enumerate(eachline(STDIN))
@@ -25,7 +25,11 @@ function stream()
 	end
 end
 
-parse_test()
 
-@time stream()
+# TEST 1
+parse_validate()
+
+
+# TEST 2
+@time stream("Json2_output.json")
 
