@@ -5,26 +5,26 @@ using Json2
 SAMPLE_FILE = "sample.json"
 function parse_validate()
 	sampleJson = readall(open(SAMPLE_FILE, "r"))
-	doc = Json2.parse(sampleJson)
-	@test doc["int5"] == 5
-	@test doc["string thing"] == "example"
-	@test doc["bool"] == None
-	@test doc["int array"][0] == None 
-	@test doc["int array"][1] == 1
-	@test doc["int array"][5] == 5
-	@test doc["int array"][6] == None 
+	obj = Json2.parse(sampleJson)
+	@test obj["int5"] == 5
+	@test obj["string thing"] == "example"
+	@test obj["bool"] == Union{}
+	arr = obj["int array"]
+	@test arr[0] == Union{}
+	@test arr[1] == 1
+	@test arr[5] == 5
+	@test arr[6] == Union{}
 
-	Json2.build(doc)
+	# arr[3] = 7
+	println(STDERR, "### Checked sample.json: ")
+	println(STDERR, Json2.build(obj))
 end
 
-function stream(fn::String)
-	println(STDERR, "# Parse JSONs from STDIN, build JSONs to '$fn'")
-	f = open(fn, "w")
-
-	for (i, line) in enumerate(eachline(STDIN))
-		doc = Json2.parse(line)
-		write(f, Json2.build(doc))
-		write(f, '\n')
+function stream()
+	println(STDERR, "### Parse JSONs from STDIN, build JSONs to STDOUT")
+	for line in eachline(STDIN)
+		obj = Json2.parse(line)
+		println(Json2.build(obj))
 	end
 end
 
@@ -34,5 +34,4 @@ parse_validate()
 
 
 # TEST 2
-@time stream("Json2_output.json")
-
+@time stream()
