@@ -7,11 +7,10 @@ JSON parser/builder
   - https://github.com/udp/json-builder
 
 - Done
-  - JSON Parsing
-  - getValue
-  - getIndex
-  - JSON Building
+  - parse()
+  - getValue()
+  - getindex()
+  - build()
   - Auto-Free
-  
-- Not Yet
-  - setIndex
+  - setindex!()
+  - push!()
