@@ -295,8 +295,8 @@ int json_object_set (json_value * obj, json_char *name,
    unsigned int size = obj->u.object.length;
    json_object_entry * entries = obj->u.object.values;
 
-   unsigned int idx = -1;
-   for (unsigned int i = 0; i < size; ++ i)
+   unsigned int i, idx = -1;
+   for (i = 0; i < size; ++ i)
       if (!strcmp (entries [i].name, name))
       {
          idx = i;
