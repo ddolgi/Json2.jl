@@ -6,18 +6,28 @@ SAMPLE_FILE = "sample.json"
 function parse_validate()
 	sampleJson = readall(open(SAMPLE_FILE, "r"))
 	obj = Json2.parse(sampleJson)
+	@test length(getkeys(obj)) == 12
+	@test obj["invalid"] == Null
 	@test obj["int5"] == 5
+	@test obj["big int"] == 4294967301
+	@test obj["float"] == 4.323422 #Failed
 	@test obj["string thing"] == "example"
-	@test obj["bool"] == Union{}
-	arr = obj["int array"]
-	@test arr[0] == Union{}
-	@test arr[1] == 1
-	@test arr[5] == 5
-	@test arr[6] == Union{}
+	@test obj["bool var true"] == true
 
-	# arr[3] = 7
+	arr = obj["int array"]
+	@test getlength(arr) == 5
+	@test arr[0] == Null
+	@test arr[1] == 1
+	@test arr[4] == -4
+	@test arr[6] == Null
 	println(STDERR, "### Checked sample.json: ")
-	println(STDERR, Json2.build(obj))
+	println(Json2.build(obj))
+
+	arr[3] = 7
+	obj["sites"]["google"] = "Gooooogle"
+	push!(obj, "new field", "hahaha")
+	println(STDERR, "### Modified sample.json: ")
+	println(Json2.build(obj))
 end
 
 function stream()

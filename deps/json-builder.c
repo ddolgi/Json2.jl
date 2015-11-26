@@ -41,9 +41,9 @@
 
 const static json_serialize_opts default_opts =
 {
-   json_serialize_mode_single_line,
+   json_serialize_mode_packed,
    0,
-   3  /* indent_size */
+   4  /* indent_size */
 };
 
 typedef struct json_builder_value
@@ -61,7 +61,7 @@ static int builderize (json_value * value)
 {
    if (((json_builder_value *) value)->is_builder_value)
       return 1;
-   
+
    if (value->type == json_object)
    {
       unsigned int i;
@@ -178,6 +178,21 @@ json_value * json_array_push (json_value * array, json_value * value)
    return value;
 }
 
+int json_array_set (json_value * array, int idx, json_value * value)
+{
+    if (array->type != json_array || value == NULL
+            || idx < 0 || idx >= array->u.array.length)
+        return 0;
+    ////// what is this?
+    if (!builderize (array) || !builderize (value))
+        return 0;
+
+    json_value_free(array->u.array.values [idx]);
+    array->u.array.values [idx] = value;
+    value->parent = array;
+    return 1;
+}
+
 json_value * json_object_new (size_t length)
 {
     json_value * value = (json_value *) calloc (1, sizeof (json_builder_value));
@@ -218,7 +233,7 @@ json_value * json_object_push_length (json_value * object,
 
    if (! (name_copy = (json_char *) malloc ((name_length + 1) * sizeof (json_char))))
       return NULL;
-   
+
    memcpy (name_copy, name, name_length * sizeof (json_char));
    name_copy [name_length] = 0;
 
@@ -271,6 +286,31 @@ json_value * json_object_push_nocopy (json_value * object,
    return value;
 }
 
+int json_object_set (json_value * obj, json_char *name,
+                                        json_value * value)
+{
+   if (obj->type != json_object)
+      return 0;
+
+   unsigned int size = obj->u.object.length;
+   json_object_entry * entries = obj->u.object.values;
+
+   unsigned int idx = -1;
+   for (unsigned int i = 0; i < size; ++ i)
+      if (!strcmp (entries [i].name, name))
+      {
+         idx = i;
+         break;
+      }
+   if(idx == -1) return 0;
+
+   json_value_free(entries [idx].value);
+   entries [idx].value = value;
+   value->parent = obj;
+
+   return 1;
+}
+
 json_value * json_string_new (const json_char * buf)
 {
    return json_string_new_length (strlen (buf), buf);
@@ -283,7 +323,7 @@ json_value * json_string_new_length (unsigned int length, const json_char * buf)
 
    if (!copy)
       return NULL;
-   
+
    memcpy (copy, buf, length * sizeof (json_char));
    copy [length] = 0;
 
@@ -299,7 +339,7 @@ json_value * json_string_new_length (unsigned int length, const json_char * buf)
 json_value * json_string_new_nocopy (unsigned int length, json_char * buf)
 {
    json_value * value = (json_value *) calloc (1, sizeof (json_builder_value));
-   
+
    if (!value)
       return NULL;
 
@@ -315,7 +355,7 @@ json_value * json_string_new_nocopy (unsigned int length, json_char * buf)
 json_value * json_integer_new (json_int_t integer)
 {
    json_value * value = (json_value *) calloc (1, sizeof (json_builder_value));
-   
+
    if (!value)
       return NULL;
 
@@ -330,7 +370,7 @@ json_value * json_integer_new (json_int_t integer)
 json_value * json_double_new (double dbl)
 {
    json_value * value = (json_value *) calloc (1, sizeof (json_builder_value));
-   
+
    if (!value)
       return NULL;
 
@@ -345,7 +385,7 @@ json_value * json_double_new (double dbl)
 json_value * json_boolean_new (int b)
 {
    json_value * value = (json_value *) calloc (1, sizeof (json_builder_value));
-   
+
    if (!value)
       return NULL;
 
@@ -360,7 +400,7 @@ json_value * json_boolean_new (int b)
 json_value * json_null_new ()
 {
    json_value * value = (json_value *) calloc (1, sizeof (json_builder_value));
-   
+
    if (!value)
       return NULL;
 
@@ -674,7 +714,7 @@ size_t json_measure_ex (json_value * value, json_serialize_opts opts)
 
          case json_boolean:
 
-            total += value->u.boolean ? 
+            total += value->u.boolean ?
                4:  /* `true` */
                5;  /* `false` */
 
@@ -986,9 +1026,3 @@ void json_builder_free (json_value * value)
       free (cur_value);
    }
 }
-
-
-
-
-
-

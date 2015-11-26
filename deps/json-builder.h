@@ -1,5 +1,5 @@
 
-/* vim: set et ts=3 sw=3 sts=3 ft=c:
+/* vim: set et ts=4 sw=4 sts=4 ft=c:
  *
  * Copyright (C) 2014 James McLaughlin.  All rights reserved.
  * https://github.com/udp/json-builder
@@ -61,6 +61,8 @@ extern const size_t json_builder_extra;
  */
 json_value * json_array_new (size_t length);
 json_value * json_array_push (json_value * array, json_value *);
+int json_array_set (json_value * array, int index, json_value *);
+
 
 
 /*** Objects
@@ -83,6 +85,9 @@ json_value * json_object_push_length (json_value * object,
 json_value * json_object_push_nocopy (json_value * object,
                                       unsigned int name_length, json_char * name,
                                       json_value *);
+
+int json_object_set (json_value * object, json_char *name, json_value *);
+
 
 /* Merges all entries from objectB into objectA and destroys objectB.
  */
@@ -154,6 +159,3 @@ void json_builder_free (json_value *);
 #endif
 
 #endif
-
-
-

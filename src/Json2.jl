@@ -1,5 +1,11 @@
 module Json2
 	import Base.getindex
+	import Base.push!
+	import Base.keys
+	import Base.length
+
+	const Null = Union{}
+	typealias String AbstractString
 	# Depends on https://github.com/udp/json-builder
 	const libjson2 = Libdl.find_library(["libjson2"],[Pkg.dir("Json2", "deps")])
 
@@ -19,21 +25,34 @@ module Json2
 	type JsonValue
 		parent::Ptr{JsonValue}
 		vtype::UInt
-		num::UInt
+		num::Int64
 		ptr::Ptr{Void}
 		_reserved::Ptr{Void}
+	end
+
+	type JsonFloat
+		parent::Ptr{JsonValue}
+		vtype::UInt
+		num::Float64
+		ptr::Ptr{Void}
+		_reserved::Ptr{Void}
+	end
+
+	function free(pValue::Ptr{JsonValue})
+		ccall((:json_builder_free, libjson2), Void
+			, (Ptr{JsonValue},), pValue)
 	end
 
 	function getValue(pObj::Ptr{JsonValue})
 		obj = unsafe_load(pObj)
 		if obj.vtype == JSON_NONE || obj.vtype == JSON_NULL
-			return Union{}
+			return Null
 		elseif obj.vtype == JSON_OBJ || obj.vtype == JSON_ARR
-			return obj
+			return pObj
 		elseif obj.vtype == JSON_INT
-			return convert(Int, obj.num)
+			return obj.num
 		elseif obj.vtype == JSON_DBL
-			return convert(Float64, obj.num)
+			return unsafe_load(convert(Ptr{JsonFloat}, pObj)).num
 		elseif obj.vtype == JSON_STR
 			pStr = convert(Ptr{Int8}, obj.ptr)
 			return bytestring(pStr)
@@ -42,13 +61,15 @@ module Json2
 		end
 	end
 
-	function getindex(obj::JsonValue, idx::Int)
+	function getindex(pObj::Ptr{JsonValue}, idx::Int)
+		obj = unsafe_load(pObj)
 		if obj.vtype != JSON_ARR || idx < 1 || obj.num < idx
-			return Union{}
+			return Null
 		end
 		arr = unsafe_load(convert(Ptr{Ptr{JsonValue}}, obj.ptr), idx)
 		return getValue(arr)
 	end
+	getlength(pObj::Ptr{JsonValue}) = unsafe_load(pObj).num
 
 	type JsonObjKey
 		name::Ptr{Int8}
@@ -56,7 +77,8 @@ module Json2
 		value::Ptr{Void}
 	end
 
-	function getindex(obj::JsonValue, key::AbstractString)
+	function getindex(pObj::Ptr{JsonValue}, key::String)
+		obj = unsafe_load(pObj)
 		if obj.vtype == JSON_OBJ
 			pEntry = convert(Ptr{JsonObjKey}, obj.ptr)
 			for i in 1:obj.num	# Linear Search
@@ -66,7 +88,22 @@ module Json2
 				end
 			end
 		end
-		return Union{}
+		return Null
+	end
+
+	function getkeys(pObj::Ptr{JsonValue})
+		obj = unsafe_load(pObj)
+		if obj.vtype != JSON_OBJ
+			return Null
+		end
+
+		ret = []
+		pEntry = convert(Ptr{JsonObjKey}, obj.ptr)
+		for i in 1:obj.num	# Linear Search
+			entry = unsafe_load(pEntry, i)
+			push!(ret, bytestring(entry.name))
+		end
+		return ret
 	end
 
 	type JsonObj # for Auto-Free
@@ -78,13 +115,10 @@ module Json2
 		end
 	end
 
-	function free(doc::JsonObj)
-		ccall((:json_builder_free, libjson2), Void
-			, (Ptr{JsonValue},), doc.root)
-	end
-
-	getindex(doc::JsonObj, idx::Int) = getindex(unsafe_load(doc.root), idx)
-	getindex(doc::JsonObj, key::AbstractString) = getindex(unsafe_load(doc.root), key)
+	free(doc::JsonObj) = free(doc.root)
+	getkeys(doc::JsonObj) = getkeys(doc.root)
+	getindex(doc::JsonObj, idx::Int) = getindex(doc.root, idx)
+	getindex(doc::JsonObj, key::String) = getindex(doc.root, key)
 
 	type JsonInfo
 		max_memory::Culong
@@ -96,7 +130,7 @@ module Json2
 		JsonInfo() = new(0,0,0,0,0,0)
 	end
 
-	function parse(json::AbstractString)
+	function parse(json::String)
 		settings = JsonInfo()
 		settings.value_extra = JSON_BUILDER_EXTRA;
 		error = Array(Cchar, 128)
@@ -106,5 +140,6 @@ module Json2
 			, &settings, json, sizeof(json), pointer(error)))
 	end
 
+	export Null, getkeys, getlength
 	include("Json2-builder.jl")
 end
