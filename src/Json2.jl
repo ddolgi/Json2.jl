@@ -71,6 +71,10 @@ module Json2
 	end
 	getlength(pObj::Ptr{JsonValue}) = unsafe_load(pObj).num
 
+	Base.start(pObj::Ptr{JsonValue}) = 1
+	Base.done(pObj::Ptr{JsonValue}, state) = getlength(pObj) < state
+	Base.next(pObj::Ptr{JsonValue}, state) = pObj[state], state + 1
+
 	type JsonObjKey
 		name::Ptr{Int8}
 		name_length::UInt
@@ -91,6 +95,15 @@ module Json2
 		return Null
 	end
 
+	function getsize(pObj::Ptr{JsonValue})
+		obj = unsafe_load(pObj)
+		if obj.vtype != JSON_OBJ
+			return Null
+		end
+
+		return obj.num
+	end
+
 	function getkeys(pObj::Ptr{JsonValue})
 		obj = unsafe_load(pObj)
 		if obj.vtype != JSON_OBJ
@@ -106,6 +119,22 @@ module Json2
 		return ret
 	end
 
+	function getitems(pObj::Ptr{JsonValue})
+		obj = unsafe_load(pObj)
+		if obj.vtype != JSON_OBJ
+			return Null
+		end
+
+		ret = []
+		pEntry = convert(Ptr{JsonObjKey}, obj.ptr)
+		for i in 1:obj.num	# Linear Search
+			entry = unsafe_load(pEntry, i)
+			push!(ret, 
+					(bytestring(entry.name), getValue(convert(Ptr{JsonValue}, entry.value))))
+		end
+		return ret
+	end
+
 	type JsonObj # for Auto-Free
 		root::Ptr{JsonValue}
 		function JsonObj(ptr::Ptr{JsonValue})
@@ -116,9 +145,15 @@ module Json2
 	end
 
 	free(doc::JsonObj) = free(doc.root)
-	getkeys(doc::JsonObj) = getkeys(doc.root)
 	getindex(doc::JsonObj, idx::Int) = getindex(doc.root, idx)
 	getindex(doc::JsonObj, key::String) = getindex(doc.root, key)
+	getsize(doc::JsonObj) = getsize(doc.root)
+	getkeys(doc::JsonObj) = getkeys(doc.root)
+	getitems(doc::JsonObj) = getitems(doc.root)
+
+	Base.start(doc::JsonObj) = 1
+	Base.done(doc::JsonObj, state) = getlength(doc) < state
+	Base.next(doc::JsonObj, state) = doc[state], state + 1
 
 	type JsonInfo
 		max_memory::Culong
@@ -140,6 +175,6 @@ module Json2
 			, &settings, json, sizeof(json), pointer(error)))
 	end
 
-	export Null, getkeys, getlength
+	export Null, getkeys, getlength, getitems, getsize
 	include("Json2-builder.jl")
 end
