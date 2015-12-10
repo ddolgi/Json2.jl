@@ -29,6 +29,13 @@ makeValue(value::Float64) = ccall((:json_double_new, libjson2), Ptr{JsonValue}
 makeValue(value::String) = ccall((:json_string_new, libjson2), Ptr{JsonValue}
 	, (Ptr{UInt8},), pointer(value))
 
+function push!(pObj::Ptr{JsonValue}, value)
+	newValue = makeValue(value)
+	ccall((:json_array_push, libjson2), Int64
+		, (Ptr{JsonValue}, Ptr{JsonValue})
+		, pObj, newValue)
+end	# 1: success, 0: failed
+
 function setindex!(pObj::Ptr{JsonValue}, value, idx::Int)
 	newValue = makeValue(value)
 	ccall((:json_array_set, libjson2), Int64
@@ -38,18 +45,17 @@ end	# 1: success, 0: failed
 
 function setindex!(pObj::Ptr{JsonValue}, value, key::String)
 	newValue = makeValue(value)
-	ccall((:json_object_set, libjson2), Int64
+	if ccall((:json_object_set, libjson2), Int64
+	, (Ptr{JsonValue}, Ptr{UInt8}, Ptr{JsonValue})
+	, pObj, pointer(key), newValue) == 0
+		ccall((:json_object_push, libjson2), Int64
 		, (Ptr{JsonValue}, Ptr{UInt8}, Ptr{JsonValue})
 		, pObj, pointer(key), newValue)
+	end
+	return 1
 end	# 1: success, 0: failed
 
-function push!(pObj::Ptr{JsonValue}, key::String, value)
-	newValue = makeValue(value)
-	ccall((:json_object_push, libjson2), Int64
-		, (Ptr{JsonValue}, Ptr{UInt8}, Ptr{JsonValue})
-		, pObj, pointer(key), newValue)
-end	# 1: success, 0: failed
-
-push!(obj::JsonObj, key::String, value) = push!(obj.root, key, value)
+push!(obj::JsonObj, value) = push!(obj.root, value)
 setindex!(obj::JsonObj, value, idx::Int) = setindex!(obj.root, value, idx)
 setindex!(obj::JsonObj, value, key::String) = setindex!(obj.root, value, key)
+

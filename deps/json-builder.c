@@ -180,8 +180,8 @@ json_value * json_array_push (json_value * array, json_value * value)
 
 int json_array_set (json_value * array, int idx, json_value * value)
 {
-    if (array->type != json_array || value == NULL
-            || idx < 0 || idx >= array->u.array.length)
+    assert (array->type == json_array);
+    if ( idx < 0 || idx >= array->u.array.length)
         return 0;
     ////// what is this?
     if (!builderize (array) || !builderize (value))

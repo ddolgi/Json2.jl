@@ -1,6 +1,7 @@
 # Json2.jl
 
 JSON parser/builder
+
 - Juila wrapper of following C modules
 	- https://github.com/udp/json-parser
 	- https://github.com/udp/json-builder
@@ -11,15 +12,21 @@ JSON parser/builder
 	- getindex()
 	- build()
 	- Auto-Free
+
 - Done @ v2.0: set/add values
 	- setindex!()
-	- push!()
+	- push!() for object
 	- getkeys()
 	- getlength()
+
 - Done @ v2.1: iterators
 	- start/ done/ next() for arrays
 	- getsize() for objects
 	- getitems() for objects
+
+- Done @ v2.2: Minor Changes
+	- push!() for array
+	- setindex!() <- push!() for object
 
 - Install : run following commands in Julia
 	- Pkg.clone("https://github.com/ddolgi/Json2.jl.git")
