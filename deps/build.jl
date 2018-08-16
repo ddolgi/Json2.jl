@@ -1,2 +1,3 @@
-cd(Pkg.dir("Json2", "deps"))
+import Json2
+cd(joinpath(dirname(pathof(Json2)), "..", "deps"))
 run(`make`)

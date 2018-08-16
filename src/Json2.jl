@@ -3,11 +3,11 @@ module Json2
 	import Base.push!
 	import Base.keys
 	import Base.length
+	import Libdl
 
 	const Null = Union{}
-	typealias String AbstractString
 	# Depends on https://github.com/udp/json-builder
-	const libjson2 = Libdl.find_library(["libjson2"],[Pkg.dir("Json2", "deps")])
+	const libjson2 = Libdl.find_library(["libjson2"],[joinpath("..", "deps")])
 
 	const JSON_NONE = 0
 	const JSON_OBJ = 1
@@ -22,24 +22,24 @@ module Json2
 	const JSON_SERIALIZE_MODE_SINGLE_LINE= 1::Int
 	const JSON_SERIALIZE_MODE_PACKED = 2::Int
 
-	type JsonValue
+	struct JsonValue
 		parent::Ptr{JsonValue}
 		vtype::UInt
 		num::Int64
-		ptr::Ptr{Void}
-		_reserved::Ptr{Void}
+		ptr::Ptr{Cvoid}
+		_reserved::Ptr{Cvoid}
 	end
 
-	type JsonFloat
+	struct JsonFloat
 		parent::Ptr{JsonValue}
 		vtype::UInt
 		num::Float64
-		ptr::Ptr{Void}
-		_reserved::Ptr{Void}
+		ptr::Ptr{Cvoid}
+		_reserved::Ptr{Cvoid}
 	end
 
 	function free(pValue::Ptr{JsonValue})
-		ccall((:json_builder_free, libjson2), Void
+		ccall((:json_builder_free, libjson2), Cvoid
 			, (Ptr{JsonValue},), pValue)
 	end
 
@@ -55,7 +55,7 @@ module Json2
 			return unsafe_load(convert(Ptr{JsonFloat}, pObj)).num
 		elseif obj.vtype == JSON_STR
 			pStr = convert(Ptr{Int8}, obj.ptr)
-			return bytestring(pStr)
+			return unsafe_string(pStr)
 		elseif obj.vtype == JSON_BOOL
 			return convert(Bool, obj.num)
 		end
@@ -69,16 +69,15 @@ module Json2
 		arr = unsafe_load(convert(Ptr{Ptr{JsonValue}}, obj.ptr), idx)
 		return getValue(arr)
 	end
-	getlength(pObj::Ptr{JsonValue}) = unsafe_load(pObj).num
+	length(pObj::Ptr{JsonValue}) = unsafe_load(pObj).num
 
-	Base.start(pObj::Ptr{JsonValue}) = 1
-	Base.done(pObj::Ptr{JsonValue}, state) = getlength(pObj) < state
-	Base.next(pObj::Ptr{JsonValue}, state) = pObj[state], state + 1
+	Base.iterate(pObj::Ptr{JsonValue}) = pObj[1], 1
+	Base.iterate(pObj::Ptr{JsonValue}, state)  = state < length(pObj) ? (pObj[state + 1], state + 1) : nothing
 
-	type JsonObjKey
+	struct JsonObjKey
 		name::Ptr{Int8}
 		name_length::UInt
-		value::Ptr{Void}
+		value::Ptr{Cvoid}
 	end
 
 	function getindex(pObj::Ptr{JsonValue}, key::String)
@@ -87,7 +86,7 @@ module Json2
 			pEntry = convert(Ptr{JsonObjKey}, obj.ptr)
 			for i in 1:obj.num	# Linear Search
 				entry = unsafe_load(pEntry, i)
-				if bytestring(entry.name) == key
+				if unsafe_string(entry.name) == key
 					return getValue(convert(Ptr{JsonValue}, entry.value))
 				end
 			end
@@ -114,7 +113,7 @@ module Json2
 		pEntry = convert(Ptr{JsonObjKey}, obj.ptr)
 		for i in 1:obj.num	# Linear Search
 			entry = unsafe_load(pEntry, i)
-			push!(ret, bytestring(entry.name))
+			push!(ret, unsafe_string(entry.name))
 		end
 		return ret
 	end
@@ -129,17 +128,16 @@ module Json2
 		pEntry = convert(Ptr{JsonObjKey}, obj.ptr)
 		for i in 1:obj.num	# Linear Search
 			entry = unsafe_load(pEntry, i)
-			push!(ret, 
-					(bytestring(entry.name), getValue(convert(Ptr{JsonValue}, entry.value))))
+			push!(ret, (unsafe_string(entry.name), getValue(convert(Ptr{JsonValue}, entry.value))))
 		end
 		return ret
 	end
 
-	type JsonObj # for Auto-Free
+	mutable struct JsonObj # for Auto-Free
 		root::Ptr{JsonValue}
 		function JsonObj(ptr::Ptr{JsonValue})
 			newItem = new(ptr)
-			finalizer(newItem, free)
+			finalizer(free, newItem)
 			return newItem
 		end
 	end
@@ -150,17 +148,17 @@ module Json2
 	getsize(doc::JsonObj) = getsize(doc.root)
 	getkeys(doc::JsonObj) = getkeys(doc.root)
 	getitems(doc::JsonObj) = getitems(doc.root)
+	length(doc::JsonObj) = unsafe_load(doc.root).num
 
-	Base.start(doc::JsonObj) = 1
-	Base.done(doc::JsonObj, state) = getlength(doc) < state
-	Base.next(doc::JsonObj, state) = doc[state], state + 1
+	Base.iterate(doc::JsonObj) = doc.root[1], 1
+	Base.iterate(doc::JsonObj, state) = state < length(doc.root) ? (doc.root[state + 1], state + 1) : nothing
 
-	type JsonInfo
+	mutable struct JsonInfo
 		max_memory::Culong
 		settings::Int
-		mem_alloc::Ptr{Void}
-		mem_free::Ptr{Void}
-		user_data::Ptr{Void}
+		mem_alloc::Ptr{Cvoid}
+		mem_free::Ptr{Cvoid}
+		user_data::Ptr{Cvoid}
 		value_extra::UInt64
 		JsonInfo() = new(0,0,0,0,0,0)
 	end
@@ -168,13 +166,13 @@ module Json2
 	function parse(json::String)
 		settings = JsonInfo()
 		settings.value_extra = JSON_BUILDER_EXTRA;
-		error = Array(Cchar, 128)
+		error = Array{Cchar}(undef, 128)
 
 		return JsonObj(ccall((:json_parse_ex, libjson2) , Ptr{JsonValue}
 			, (Ptr{JsonInfo}, Ptr{Int8}, UInt, Ptr{Cchar})
-			, &settings, json, sizeof(json), pointer(error)))
+			, pointer_from_objref(settings), json, sizeof(json), pointer(error)))
 	end
 
-	export Null, getkeys, getlength, getitems, getsize
+	export Null, getkeys, getitems, getsize#, length, iterate
 	include("Json2-builder.jl")
 end

@@ -7,17 +7,17 @@
 
 function build(doc::JsonObj)
 	size = ccall((:json_measure, libjson2), UInt64, (Ptr{JsonValue},), doc.root)
-	buf = Array(UInt8, size)
+	buf = Array{UInt8}(undef, size)
 
 	# opts = JsonOpt(JSON_SERIALIZE_MODE_PACKED, 0, 4)
-	# ccall((:json_serialize_ex, libjson2), Void
+	# ccall((:json_serialize_ex, libjson2), Cvoid
 	# 	, (Ptr{Cchar}, Ptr{JsonValue}, JsonOpt)
 	# 	, pointer(buf), doc.root, opts)
-	ccall((:json_serialize, libjson2), Void
+	ccall((:json_serialize, libjson2), Cvoid
 		, (Ptr{Cchar}, Ptr{JsonValue})
 		, pointer(buf), doc.root)
 	pop!(buf)	# delete last NULL
-	return utf8(buf)
+	return String(buf)
 end
 
 import Base.setindex!

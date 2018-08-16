@@ -1,10 +1,11 @@
 #!/usr/local/bin/julia
-using Base.Test
+using Test
 using Json2
 
 SAMPLE_FILE = "sample.json"
+
 function parse_validate()
-	sampleJson = readall(open(SAMPLE_FILE, "r"))
+	sampleJson = read(SAMPLE_FILE, String)
 	obj = Json2.parse(sampleJson)
 	@test length(getkeys(obj)) == 12
 	@test obj["invalid"] == Null
@@ -15,12 +16,12 @@ function parse_validate()
 	@test obj["bool var true"] == true
 
 	arr = obj["int array"]
-	@test getlength(arr) == 5
+	@test length(arr) == 5
 	@test arr[0] == Null
 	@test arr[1] == 1
 	@test arr[4] == -4
 	@test arr[6] == Null
-	println(STDERR, "### Checked sample.json: ")
+	println(stderr, "### Checked sample.json: ")
 	println(Json2.build(obj))
 end
 
@@ -33,7 +34,7 @@ function stream()
 end
 
 function modify_validate()
-	sampleJson = readall(open(SAMPLE_FILE, "r"))
+	sampleJson = read(SAMPLE_FILE, String)
 	obj = Json2.parse(sampleJson)
 
 	arr = obj["int array"]
@@ -57,6 +58,11 @@ function modify_validate()
 
 	println("-- iter test 3")
 	for item in obj["int array"]
+		println(item)
+	end
+
+	println("-- iter test 4")
+	for item in Json2.parse("[4,3,2.0,-1]")
 		println(item)
 	end
 end
